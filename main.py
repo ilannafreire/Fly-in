@@ -4,7 +4,8 @@ import argparse
 import os
 import sys
 
-from fly_in.display import Colorizer, MapRenderer, Renderer
+from fly_in.display import Colorizer, Renderer
+from fly_in.gui import GuiError, GuiRenderer
 from fly_in.map_parser import MapParser, ParseError
 from fly_in.pathfinder import NoPathError, Pathfinder
 from fly_in.simulation import Simulation, SimulationError
@@ -17,10 +18,10 @@ def build_arguments() -> argparse.ArgumentParser:
     parser.add_argument("map_file", help="path to the map file")
     parser.add_argument("-v", "--visual", action="store_true",
                         help="show zone occupancy after each turn")
-    parser.add_argument("-m", "--map", action="store_true",
-                        help="draw the map and animate the drones")
+    parser.add_argument("-g", "--gui", action="store_true",
+                        help="open a window with animated drone images")
     parser.add_argument("--delay", type=float, default=0.5,
-                        help="seconds between map frames (default: 0.5)")
+                        help="seconds per GUI turn (default: 0.5)")
     parser.add_argument("--no-color", action="store_true",
                         help="disable ANSI colors")
     return parser
@@ -49,14 +50,15 @@ def main() -> int:
     except (NoPathError, SimulationError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
-    is_terminal = sys.stdout.isatty()
-    colors = Colorizer(network, enabled=is_terminal and not args.no_color)
+    use_color = sys.stdout.isatty() and not args.no_color
+    colors = Colorizer(network, enabled=use_color)
     try:
-        if args.map:
-            MapRenderer(network, colors, args.delay).render(
-                turns, sys.stdout, animate=is_terminal)
-        else:
-            Renderer(network, colors, args.visual).render(turns, sys.stdout)
+        Renderer(network, colors, args.visual).render(turns, sys.stdout)
+        if args.gui:
+            GuiRenderer(network, paths, args.delay).run()
+    except GuiError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
         return 130

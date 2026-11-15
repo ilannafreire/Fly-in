@@ -41,7 +41,7 @@ Requirements: Python 3.10 or later.
 make install                                   # flake8, mypy, pytest
 make run MAP=maps/hard/02_capacity_hell.txt    # run a map
 make run MAP=maps/easy/02_simple_fork.txt ARGS=--visual
-make run MAP=maps/hard/03_ultimate_challenge.txt ARGS=--map
+make run MAP=maps/hard/03_ultimate_challenge.txt ARGS=--gui
 make debug MAP=maps/easy/01_linear_path.txt    # run under pdb
 make lint                                      # flake8 + mypy
 make lint-strict                               # flake8 + mypy --strict
@@ -52,14 +52,16 @@ make clean                                     # remove caches
 Or directly:
 
 ```bash
-python3 main.py <map_file> [--visual] [--map] [--delay SECONDS] [--no-color]
+python3 main.py <map_file> [--visual] [--gui] [--delay SECONDS] [--no-color]
 ```
 
 * `--visual` / `-v`: after each turn, print the occupancy of every non-empty
   zone (`zone count/capacity`) and the number of delivered drones.
-* `--map` / `-m`: draw the map and animate the drones, one frame per turn
-  (see [Visual representation](#visual-representation)).
-* `--delay`: seconds between two animation frames (default `0.5`).
+* `--gui` / `-g`: print the normal output, then open a window where drone
+  illustrations fly over the map (needs a display and tkinter, which ships
+  with Python; on some Linux distributions install `python3-tk`).
+* `--delay`: seconds per animated turn in the `--gui` window
+  (default `0.5`).
 * `--no-color`: disable ANSI colors (they are also disabled automatically
   when the output is not a terminal, e.g. `| wc -l`).
 
@@ -74,14 +76,16 @@ fly_in/models.py      ZoneType, Zone, Connection, Network
 fly_in/map_parser.py  MapParser, ParseError
 fly_in/pathfinder.py  ReservationTable, Pathfinder, NoPathError
 fly_in/simulation.py  Move, Turn, Simulation, SimulationError
-fly_in/display.py     Colorizer, Renderer (text), MapRenderer (animated map)
+fly_in/display.py     Colorizer, Renderer (colored terminal output)
+fly_in/gui.py         GuiRenderer (tkinter window with drone images)
+assets/drone.png      drone illustration used by the GUI (replaceable)
 tests/                pytest test suite
 maps/                 maps shipped with the subject
 ```
 
 Each module has a single responsibility (models -> parser -> pathfinder ->
 simulation -> display). No graph library is used: only the standard library
-(`heapq`, `collections`, `dataclasses`, `re`, `argparse`).
+(`heapq`, `collections`, `dataclasses`, `re`, `argparse`, `tkinter`).
 
 ## Algorithm
 
@@ -177,31 +181,27 @@ ever produced an invalid path, the program would stop with a
   number of turns is printed at the end.
 * Colors only add escape codes around names, so the move lines keep the
   exact format required by the subject.
-* With `--map`, the map itself is drawn and animated in the terminal (the
-  screen is cleared between frames, `--delay` seconds apart). Each zone is
-  placed on a grid using its coordinates (only distinct x/y values are kept,
-  so sparse coordinates stay compact) and drawn in its color:
-  `S` start, `E` goal, `#` blocked, `.` empty zone, or the number of drones
-  currently in it. Below the grid: the moves of the turn, and how many
-  drones are still at the start, flying toward a restricted zone, and
-  delivered. You can watch the drones flow through the network, see where
-  they queue and which paths are used in parallel.
+* With `--gui`, a tkinter window draws the network: zones are circles in
+  their map color, placed at their coordinates (restricted zones have a
+  dashed outline), and connections are lines whose thickness grows with
+  `max_link_capacity`. Each drone is drawn with the illustration
+  `assets/drone.png` and its `D<ID>` label, and slides smoothly from zone
+  to zone during each turn. Drones flying toward a restricted zone stop
+  halfway on the connection, drones sharing a zone are spread around it,
+  and delivered drones disappear in the goal. The status bar shows the
+  turn and the delivery progress; hovering a zone shows its details
+  (type, capacity, color, coordinates). `space` pauses, `Esc` quits.
 
-  `python3 main.py maps/medium/03_priority_puzzle.txt --map`, turn 2:
+  The layout keeps the order of the map coordinates but scales each axis
+  separately to fill the screen. When columns are too narrow for the
+  names (e.g. the challenger map), labels alternate above and below the
+  zones so they never overlap.
 
-  ```
-  Turn 2/6
-
-        1   .
-    S   1   1   .   E
-
-  moves: D1-fast_path D2-fast_junction D3-slow_path1 D5-start-slow_path1
-  start: 1  in flight: 1  delivered: 0/5
-  S start  E goal  # blocked  . empty  n = drones in the zone
-  ```
-
-  When the output is not a terminal (pipe or file), frames are printed one
-  after the other, without animation or colors.
+  The animation is driven by the clock (not by a frame counter), so each
+  turn lasts exactly `--delay` seconds even on a slow display. Drone
+  positions are computed once per turn and cached. Replace
+  `assets/drone.png` with any PNG (about 40x40 px) to change the drone
+  look; if the image is missing, a simple orange circle is drawn.
 
 ## Example
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from fly_in.display import Colorizer, MapRenderer
+from fly_in.gui import drone_location
 from fly_in.map_parser import MapParser, ParseError
 from fly_in.pathfinder import NoPathError, Pathfinder
 from fly_in.simulation import Simulation, SimulationError, Turn
@@ -132,15 +132,13 @@ def test_capacity_on_start_and_end_is_ignored() -> None:
     assert lines(turns) == ["D1-e D2-e D3-e"]
 
 
-def test_map_frame_places_drones_on_grid() -> None:
-    """The map view draws zones by coordinates with their drone counts."""
-    network = MapParser().parse_file(MAPS / "easy/01_linear_path.txt")
-    turns = Simulation(network, Pathfinder(network).plan_all()).run()
-    view = MapRenderer(network, Colorizer(network, enabled=False))
-    frame = view.frame(turns[1], len(turns)).splitlines()
-    assert frame[0] == "Turn 2/4"
-    assert frame[2] == "  S   1   1   E "
-    assert frame[4] == "moves: D1-waypoint2 D2-waypoint1"
+def test_drone_location_handles_transit() -> None:
+    """The GUI places a drone in a zone or on a restricted connection."""
+    path = [(0, "s"), (1, "a"), (3, "r"), (4, "e")]
+    assert drone_location(path, 0) == ("s", "s")
+    assert drone_location(path, 2) == ("a", "r")
+    assert drone_location(path, 3) == ("r", "r")
+    assert drone_location(path, 9) == ("e", "e")
 
 
 def test_simulation_rejects_over_capacity() -> None:
