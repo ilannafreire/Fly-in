@@ -126,8 +126,8 @@ def test_capacity_on_start_and_end_is_ignored() -> None:
     """max_drones on start/end is accepted and does not limit drones."""
     turns = simulate(
         "nb_drones: 3 # comment\n"
-        "start_hub: s 0 0 [max_drones=1]\n"
-        "end_hub: e 1 0 [max_drones=1]\n"
+        "start_hub: s 0 0 [max_drones=0]\n"
+        "end_hub: e 1 0 [max_drones=-5]\n"
         "connection: s-e [max_link_capacity=3]\n")
     assert lines(turns) == ["D1-e D2-e D3-e"]
 

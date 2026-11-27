@@ -117,8 +117,12 @@ class MapParser:
         except ValueError:
             raise ParseError(
                 number, f"invalid zone type '{meta['zone']}'") from None
-        max_drones = self._positive_int(
-            number, "max_drones", meta.get("max_drones", "1"))
+        if prefix == "hub":
+            max_drones = self._positive_int(
+                number, "max_drones", meta.get("max_drones", "1"))
+        else:
+            # Start and end zones are unlimited: max_drones is ignored.
+            max_drones = self._nb_drones or 1
         zone = Zone(name, int(match["x"]), int(match["y"]), zone_type,
                     meta.get("color"), max_drones)
         if prefix == "start_hub":
